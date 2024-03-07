@@ -1,13 +1,14 @@
-from text import vietnamese, cleaned_text_to_sequence
+from vinorm import TTSnorm
+import py_vncorenlp
+import os
+
+path = os.path.join(os.getcwd(),"py_vncorenlp") #Get current path
+rdrsegmenter = py_vncorenlp.VnCoreNLP(annotators=["wseg"], save_dir=path)
 
 def clean_text(text):
-    norm_text = vietnamese.text_normalize(text) 
-    phones, tones = vietnamese.g2p(norm_text)
-    return phones, tones
-
-def text_to_sequence(text):
-    phones, tones = clean_text(text)
-    return cleaned_text_to_sequence(phones, tones)
+    norm_text = TTSnorm(text).strip() 
+    seg_text = rdrsegmenter.word_segment(norm_text) 
+    return seg_text
 
 if __name__ == "__main__":
     pass

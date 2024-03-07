@@ -3,14 +3,11 @@ librosa==0.10.1
 matplotlib==3.7.2
 numpy==1.24.4
 scipy==1.11.2
-# torch==2.0.1
-# torchaudio==2.0.2
-# torchvision==0.15.2
 tensorboard==2.14.0
 onnx==1.14.1
 onnxruntime==1.15.1
 gradio
 vector_quantize_pytorch
 vinorm
-underthesea
-eng_to_ipa
+text2phonemesequence
+py_vncorenlp

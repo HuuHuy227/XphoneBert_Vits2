@@ -16,10 +16,11 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.cuda.amp import autocast, GradScaler
-import tqdm
+from transformers import AutoTokenizer
 
-import commons
+import tqdm
 import utils
+import commons
 from data_utils import TextAudioLoader, TextAudioCollate, DistributedBucketSampler
 from models import (
     SynthesizerTrn,
@@ -31,20 +32,9 @@ from models import (
 )
 from losses import generator_loss, discriminator_loss, feature_loss, kl_loss
 from mel_processing import mel_spectrogram_torch, spec_to_mel_torch
-from text.symbols import symbols
 
 
-torch.backends.cuda.matmul.allow_tf32 = True
-torch.backends.cudnn.allow_tf32 = (
-    True  # If encountered training problem,please try to disable TF32.
-)
-torch.set_float32_matmul_precision("medium")
-torch.backends.cuda.sdp_kernel("flash")
-torch.backends.cuda.enable_flash_sdp(True)
-torch.backends.cuda.enable_mem_efficient_sdp(
-    True
-)
-# torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.benchmark = True
 global_step = 0
 
 
@@ -82,6 +72,8 @@ def run(rank, n_gpus, hps):
     torch.manual_seed(hps.train.seed)
     torch.cuda.set_device(rank)
 
+    tokenizer = AutoTokenizer.from_pretrained(hps.bert)
+
     if (
         "use_mel_posterior_encoder" in hps.model.keys()
         and hps.model.use_mel_posterior_encoder == True
@@ -94,7 +86,7 @@ def run(rank, n_gpus, hps):
         posterior_channels = hps.data.filter_length // 2 + 1
         hps.data.use_mel_posterior_encoder = False
 
-    train_dataset = TextAudioLoader(hps.data.training_files, hps.data)
+    train_dataset = TextAudioLoader(hps.data.training_files, hps.data, tokenizer)
     train_sampler = DistributedBucketSampler(
         train_dataset,
         hps.train.batch_size,
@@ -107,22 +99,22 @@ def run(rank, n_gpus, hps):
     collate_fn = TextAudioCollate()
     train_loader = DataLoader(
         train_dataset,
-        num_workers=8,
-        shuffle=False,
+        num_workers=4, 
+        shuffle=False, 
         pin_memory=True,
-        collate_fn=collate_fn,
-        batch_sampler=train_sampler,
+        collate_fn=collate_fn, 
+        batch_sampler=train_sampler
     )
     if rank == 0:
-        eval_dataset = TextAudioLoader(hps.data.validation_files, hps.data)
+        eval_dataset = TextAudioLoader(hps.data.validation_files, hps.data, tokenizer)
         eval_loader = DataLoader(
             eval_dataset,
-            num_workers=8,
+            num_workers=4, 
             shuffle=False,
-            batch_size=hps.train.batch_size,
+            batch_size=hps.train.batch_size, 
             pin_memory=True,
-            drop_last=False,
-            collate_fn=collate_fn,
+            drop_last=False, 
+            collate_fn=collate_fn
         )
     # some of these flags are not being used in the code and directly set in hps json file.
     # they are kept here for reference and prototyping.
@@ -200,13 +192,25 @@ def run(rank, n_gpus, hps):
         use_duration_discriminator = False
 
     net_g = SynthesizerTrn(
-        len(symbols),
+        hps.bert,
         posterior_channels,
         hps.train.segment_size // hps.data.hop_length,
         mas_noise_scale_initial=mas_noise_scale_initial,
         noise_scale_delta=noise_scale_delta,
         **hps.model,
     ).cuda(rank)
+
+    if getattr(hps.train, "freeze_bert", False):
+        print("Freezing bert encoder !!!")
+        for child in net_g.module.enc_p.bert.children():
+                for param in child.parameters():
+                    param.requires_grad = False
+    else:
+        print("Unfreeze bert encoder !!!")
+        for child in net_g.module.enc_p.bert.children():
+                for param in child.parameters():
+                    param.requires_grad = True
+
     net_d = MultiPeriodDiscriminator(hps.model.use_spectral_norm).cuda(rank)
     optim_g = torch.optim.AdamW(
         net_g.parameters(),
@@ -348,7 +352,8 @@ def train_and_evaluate(
         loader = tqdm.tqdm(train_loader, desc="Loading train data")
     else:
         loader = train_loader
-    for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths, tone) in enumerate(
+    
+    for batch_idx, (x, attention_mask,x_lengths, spec, spec_lengths, y, y_lengths) in enumerate(
         loader
     ):
         if net_g.module.use_noise_scaled_mas:
@@ -357,18 +362,14 @@ def train_and_evaluate(
                 - net_g.module.noise_scale_delta * global_step
             )
             net_g.module.current_mas_noise_scale = max(current_mas_noise_scale, 0.0)
-        x, x_lengths = x.cuda(rank, non_blocking=True), x_lengths.cuda(
-            rank, non_blocking=True
-        )
+        x, attention_mask, x_lengths = x.cuda(rank, non_blocking=True), attention_mask.cuda(rank,non_blocking=True),x_lengths.cuda(
+            rank, non_blocking=True)
         spec, spec_lengths = spec.cuda(rank, non_blocking=True), spec_lengths.cuda(
             rank, non_blocking=True
         )
         y, y_lengths = y.cuda(rank, non_blocking=True), y_lengths.cuda(
             rank, non_blocking=True
         )
-
-        tone = tone.cuda(rank, non_blocking=True)
-
         with autocast(enabled=hps.train.fp16_run):
             (
                 y_hat,
@@ -379,7 +380,7 @@ def train_and_evaluate(
                 z_mask,
                 (z, z_p, m_p, logs_p, m_q, logs_q),
                 (hidden_x, logw, logw_),
-            ) = net_g(x, x_lengths, spec, spec_lengths, tone)
+            ) = net_g(x, attention_mask, spec, spec_lengths)
 
             if (
                 hps.model.use_mel_posterior_encoder
@@ -576,23 +577,22 @@ def train_and_evaluate(
 def evaluate(hps, generator, eval_loader, writer_eval):
     generator.eval()
     with torch.no_grad():
-        for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths, tone) in enumerate(
+        for batch_idx, (x, attention_mask, x_lengths, spec, spec_lengths, y, y_lengths) in enumerate(
             eval_loader
         ):
-            x, x_lengths = x.cuda(0), x_lengths.cuda(0)
+            x, attention_mask, x_lengths = x.cuda(0), attention_mask.cuda(0), x_lengths.cuda(0)
             spec, spec_lengths = spec.cuda(0), spec_lengths.cuda(0)
             y, y_lengths = y.cuda(0), y_lengths.cuda(0)
-            tone = tone.cuda(0)
             # remove else
             x = x[:1]
             x_lengths = x_lengths[:1]
+            attention_mask = attention_mask[:1]
             spec = spec[:1]
             spec_lengths = spec_lengths[:1]
             y = y[:1]
             y_lengths = y_lengths[:1]
-            tone = tone[:1]
             break
-        y_hat, attn, mask, *_ = generator.module.infer(x, x_lengths, tone, max_len=1000)
+        y_hat, attn, mask, *_ = generator.module.infer(x, attention_mask, max_len=1000)
         y_hat_lengths = mask.sum([1, 2]).long() * hps.data.hop_length
 
         if hps.model.use_mel_posterior_encoder or hps.data.use_mel_posterior_encoder:

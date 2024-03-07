@@ -7,8 +7,7 @@ import torch
 import torch.utils.data
 
 import commons
-from mel_processing import (mel_spectrogram_torch, spec_to_mel_torch,
-                            spectrogram_torch)
+from mel_processing import (mel_spectrogram_torch, spectrogram_torch)
 from text import cleaned_text_to_sequence
 from utils import load_filepaths_and_text, load_wav_to_torch
 
@@ -20,7 +19,7 @@ class TextAudioLoader(torch.utils.data.Dataset):
     3) computes spectrograms from audio files.
     """
 
-    def __init__(self, audiopaths_and_text, hparams):
+    def __init__(self, audiopaths_and_text, hparams, tokenizer):
         self.hparams = hparams
         self.audiopaths_and_text = load_filepaths_and_text(audiopaths_and_text)
         self.audio_dir = hparams.audio_dir
@@ -31,6 +30,7 @@ class TextAudioLoader(torch.utils.data.Dataset):
         self.hop_length = hparams.hop_length
         self.win_length = hparams.win_length
         self.sampling_rate = hparams.sampling_rate
+        self.tokenizer = tokenizer
 
         self.use_mel_spec_posterior = getattr(
             hparams, "use_mel_posterior_encoder", False
@@ -59,11 +59,9 @@ class TextAudioLoader(torch.utils.data.Dataset):
         lengths = []
         skipped = 0
         print("Init dataset...")
-        for audiopath, phones, tone in self.audiopaths_and_text:
-            if self.min_text_len <= len(phones) and len(phones) <= self.max_text_len:
-                phones = phones.split(" ")
-                tone = [int(i) for i in tone.split(" ")]
-                audiopaths_and_text_new.append([audiopath, phones, tone])
+        for audiopath, text in self.audiopaths_and_text:
+            if self.min_text_len <= len(text) and len(text) <= self.max_text_len:
+                audiopaths_and_text_new.append([audiopath, text])
                 lengths.append(os.path.getsize(os.path.join(self.audio_dir,audiopath)) // (2 * self.hop_length))
             else:
                 skipped += 1
@@ -79,10 +77,10 @@ class TextAudioLoader(torch.utils.data.Dataset):
 
     def get_audio_text_pair(self, audiopath_and_text):
         # separate filename and text
-        audiopath, phone, tone = audiopath_and_text
-        phone, tone = self.get_text(phone, tone)
-        spec, wav = self.get_audio(os.path.join(self.audio_dir, audiopath))
-        return (phone, spec, wav, tone)
+        audiopath, text = audiopath_and_text[0], audiopath_and_text[1]
+        input_ids, attention_mask = self.get_text(text)
+        spec, wav = self.get_audio(audiopath)
+        return (input_ids, attention_mask, spec, wav)
 
     def get_audio(self, filename):
         # TODO : if linear spec exists convert to mel from existing linear spec
@@ -134,16 +132,15 @@ class TextAudioLoader(torch.utils.data.Dataset):
             spec = torch.squeeze(spec, 0)
             torch.save(spec, spec_filename)
         return spec, audio_norm
+    
+    def get_text(self, text):
+        tokenized_text = self.tokenizer(text)
+        input_ids = tokenized_text['input_ids']
+        attention_mask = tokenized_text['attention_mask']
 
-    def get_text(self, phone, tone):
-        phone, tone = cleaned_text_to_sequence(phone, tone)
-        
-        if self.add_blank:
-            phone = commons.intersperse(phone, 0)
-            tone = commons.intersperse(tone, 0)
-        phone = torch.LongTensor(phone)
-        tone = torch.LongTensor(tone)
-        return phone, tone
+        input_ids = torch.LongTensor(input_ids)
+        attention_mask = torch.LongTensor(attention_mask)
+        return input_ids, attention_mask
 
     def __getitem__(self, index):
         return self.get_audio_text_pair(self.audiopaths_and_text[index])
@@ -155,8 +152,9 @@ class TextAudioLoader(torch.utils.data.Dataset):
 class TextAudioCollate:
     """Zero-pads model inputs and targets"""
 
-    def __init__(self, return_ids=False):
+    def __init__(self, return_ids=False, pad_token_id=1):
         self.return_ids = return_ids
+        self.pad_token_id = pad_token_id
 
     def __call__(self, batch):
         """Collate's training batch from normalized text and aduio
@@ -166,25 +164,25 @@ class TextAudioCollate:
         """
         # Right zero-pad all one-hot text sequences to max input length
         _, ids_sorted_decreasing = torch.sort(
-            torch.LongTensor([x[1].size(1) for x in batch]), dim=0, descending=True
+            torch.LongTensor([x[2].size(1) for x in batch]), dim=0, descending=True
         )
 
         max_text_len = max([len(x[0]) for x in batch])
-        max_spec_len = max([x[1].size(1) for x in batch])
-        max_wav_len = max([x[2].size(1) for x in batch])
+        max_spec_len = max([x[2].size(1) for x in batch])
+        max_wav_len = max([x[3].size(1) for x in batch])
 
         text_lengths = torch.LongTensor(len(batch))
         spec_lengths = torch.LongTensor(len(batch))
         wav_lengths = torch.LongTensor(len(batch))
 
         text_padded = torch.LongTensor(len(batch), max_text_len)
-        tone_padded = torch.LongTensor(len(batch), max_text_len)
+        attention_padded = torch.LongTensor(len(batch), max_text_len)
 
-        spec_padded = torch.FloatTensor(len(batch), batch[0][1].size(0), max_spec_len)
+        spec_padded = torch.FloatTensor(len(batch), batch[0][2].size(0), max_spec_len)
         wav_padded = torch.FloatTensor(len(batch), 1, max_wav_len)
 
-        text_padded.zero_()
-        tone_padded.zero_()
+        text_padded.fill_(self.pad_token_id)
+        attention_padded.zero_()
 
         spec_padded.zero_()
         wav_padded.zero_()
@@ -196,36 +194,36 @@ class TextAudioCollate:
             text_padded[i, : text.size(0)] = text
             text_lengths[i] = text.size(0)
 
-            spec = row[1]
+            attention = row[1]
+            attention_padded[i, :attention.size(0)] = attention
+
+            spec = row[2]
             spec_padded[i, :, : spec.size(1)] = spec
             spec_lengths[i] = spec.size(1)
 
-            wav = row[2]
+            wav = row[3]
             wav_padded[i, :, : wav.size(1)] = wav
             wav_lengths[i] = wav.size(1)
-
-            tone = row[3]
-            tone_padded[i, : tone.size(0)] = tone
 
         if self.return_ids:
             return (
                 text_padded,
+                attention_padded,
                 text_lengths,
                 spec_padded,
                 spec_lengths,
                 wav_padded,
                 wav_lengths,
-                tone_padded,
                 ids_sorted_decreasing,
             )
         return (
             text_padded,
+            attention_padded,
             text_lengths,
             spec_padded,
             spec_lengths,
             wav_padded,
-            wav_lengths,
-            tone_padded
+            wav_lengths
         )
 
 

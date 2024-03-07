@@ -3,7 +3,7 @@
         "log_interval": 200,
         "eval_interval": 1000,
         "seed": 1234,
-        "epochs": 1000,
+        "epochs": 1600,
         "learning_rate": 2e-4,
         "betas": [0.8, 0.99],
         "eps": 1e-9,
@@ -15,6 +15,7 @@
         "warmup_epochs": 0,
         "c_mel": 45,
         "c_kl": 1.0,
+        "freeze_bert": false,
         "skip_optimizer": true,
         "pretrained_path":"/root/vits2_pytorch/ckpt"
     },
@@ -56,6 +57,7 @@
         "n_layers_q": 3,
         "use_spectral_norm": false,
         "use_sdp": false
-    }
-    }
+    },
+    "bert": "vinai/xphonebert-base"
+}
     
