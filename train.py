@@ -298,16 +298,17 @@ def run(rank, n_gpus, hps):
 
     scaler = GradScaler(enabled=hps.train.fp16_run)
 
-    if getattr(hps.train, "freeze_bert", False):
+    if "freeze_bert" in hps.train.keys() and hps.train.freeze_bert == False:
         print("Freezing bert encoder !!!")
         for child in net_g.module.enc_p.bert.children():
-                for param in child.parameters():
-                    param.requires_grad = False
-    elif getattr(hps.train, "freeze_bert", True):
+            for param in child.parameters():
+                param.requires_grad = False
+                
+    elif "freeze_bert" in hps.train.keys() and hps.train.freeze_bert == True:
         print("Unfreeze bert encoder !!!")
         for child in net_g.module.enc_p.bert.children():
-                for param in child.parameters():
-                    param.requires_grad = True
+            for param in child.parameters():
+                param.requires_grad = True
 
     for epoch in range(epoch_str, hps.train.epochs + 1):
         if rank == 0:

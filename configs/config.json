@@ -15,8 +15,8 @@
         "warmup_epochs": 0,
         "c_mel": 45,
         "c_kl": 1.0,
-        "freeze_bert": false,
         "skip_optimizer": true,
+        "freeze_bert": false,
         "pretrained_path":"/root/vits2_pytorch/ckpt"
     },
     "data": {

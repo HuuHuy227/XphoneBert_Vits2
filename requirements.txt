@@ -3,8 +3,8 @@ librosa==0.10.1
 matplotlib==3.7.2
 scipy==1.11.2
 tensorboard==2.14.0
-onnx==1.14.1
-onnxruntime==1.15.1
+# onnx==1.14.1
+# onnxruntime==1.15.1
 gradio
 vector_quantize_pytorch
 vinorm
