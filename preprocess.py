@@ -8,7 +8,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--out_extension", default="cleaned")
     parser.add_argument("--audio_path", type=str)
-    parser.add_argument("--raw_text", bool, default=True)
+    parser.add_argument("--raw_text", type=bool, default=True)
     parser.add_argument("--language", default="vie-n")
     parser.add_argument("--cuda", default=False, action='store_true')
     parser.add_argument("--pretrained_g2p_model", default="charsiu/g2p_multilingual_byT5_small_100")
