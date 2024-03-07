@@ -34,7 +34,18 @@ from losses import generator_loss, discriminator_loss, feature_loss, kl_loss
 from mel_processing import mel_spectrogram_torch, spec_to_mel_torch
 
 
-torch.backends.cudnn.benchmark = True
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = (
+    True  # If encountered training problem,please try to disable TF32.
+)
+torch.set_float32_matmul_precision("medium")
+torch.backends.cuda.sdp_kernel("flash")
+torch.backends.cuda.enable_flash_sdp(True)
+torch.backends.cuda.enable_mem_efficient_sdp(
+    True
+)  # Not available if torch version is lower than 2.0
+
+# torch.backends.cudnn.benchmark = True
 global_step = 0
 
 
