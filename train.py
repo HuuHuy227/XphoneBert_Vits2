@@ -200,17 +200,6 @@ def run(rank, n_gpus, hps):
         **hps.model,
     ).cuda(rank)
 
-    if getattr(hps.train, "freeze_bert", False):
-        print("Freezing bert encoder !!!")
-        for child in net_g.module.enc_p.bert.children():
-                for param in child.parameters():
-                    param.requires_grad = False
-    else:
-        print("Unfreeze bert encoder !!!")
-        for child in net_g.module.enc_p.bert.children():
-                for param in child.parameters():
-                    param.requires_grad = True
-
     net_d = MultiPeriodDiscriminator(hps.model.use_spectral_norm).cuda(rank)
     optim_g = torch.optim.AdamW(
         net_g.parameters(),
@@ -296,6 +285,17 @@ def run(rank, n_gpus, hps):
         scheduler_dur_disc = None
 
     scaler = GradScaler(enabled=hps.train.fp16_run)
+
+    if getattr(hps.train, "freeze_bert", False):
+        print("Freezing bert encoder !!!")
+        for child in net_g.module.enc_p.bert.children():
+                for param in child.parameters():
+                    param.requires_grad = False
+    else:
+        print("Unfreeze bert encoder !!!")
+        for child in net_g.module.enc_p.bert.children():
+                for param in child.parameters():
+                    param.requires_grad = True
 
     for epoch in range(epoch_str, hps.train.epochs + 1):
         if rank == 0:

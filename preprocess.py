@@ -31,9 +31,9 @@ if __name__ == "__main__":
     
     for filelist in args.filelists:
         print("START:", filelist)
-        if args.raw_text:
-            print("-----------Normalizing Text And Segmented On Raw Text-------------")
-            with open(filelist + "." + args.out_extension, "w", encoding="utf-8") as out_file:
+        
+        #print("-----------Normalizing Text And Segmented On Raw Text-------------")
+        with open(filelist + "." + args.out_extension, "w", encoding="utf-8") as out_file:
                 with open(filelist, "r", encoding="utf-8") as trans_file:
                     lines = trans_file.readlines()
                     # print(lines, ' ', len(lines))
@@ -41,28 +41,32 @@ if __name__ == "__main__":
                         for line in tqdm(lines):
                             try:
                                 utt, text = line.strip().split("|")
-                                norm_seg_text = clean_text(text)
+                                if args.raw_text:
+                                    norm_seg_text = clean_text(text)
+                                    seq = model.infer_sentence(norm_seg_text)
+                                else:
+                                    seq = model.infer_sentence(text)
                                 out_file.write(
                                     "{}|{}\n".format(
                                         utt,
-                                        norm_seg_text
+                                        seq 
                                     )
                                 )
                             except Exception as e:
                                 print(line)
                                 print(f"Error while preprocess data:\n{e}")
-            print("----------- Phonemezing On Normalized Segmented-Word -------------")
+            # print("----------- Phonemezing On Normalized Segmented-Word -------------")
             # Processing data
-            model.infer_dataset(input_file = filelist + "." + args.out_extension, 
-                                output_file=filelist + "." + args.out_extension + ".phonemed", 
-                                batch_size=args.batch_size)
+        #     model.infer_dataset(input_file = filelist + "." + args.out_extension, 
+        #                         output_file=filelist + "." + args.out_extension + ".phonemed", 
+        #                         batch_size=args.batch_size)
             
-        else:
-            print("----------- Phonemezing On Normalized Segmented-Word -------------")
-            # Processing data
-            model.infer_dataset(input_file = filelist , 
-                                output_file=filelist  + ".phonemed", 
-                                batch_size=args.batch_size)
+        # else:
+        #     print("----------- Phonemezing On Normalized Segmented-Word -------------")
+        #     # Processing data
+        #     model.infer_dataset(input_file = filelist , 
+        #                         output_file=filelist  + ".phonemed", 
+        #                         batch_size=args.batch_size)
 
         # Check Audio Files is exists
         # with open(filelist, "r", encoding="utf-8") as f:
