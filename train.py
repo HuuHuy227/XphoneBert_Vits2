@@ -303,7 +303,7 @@ def run(rank, n_gpus, hps):
         for child in net_g.module.enc_p.bert.children():
                 for param in child.parameters():
                     param.requires_grad = False
-    else:
+    elif getattr(hps.train, "freeze_bert", True):
         print("Unfreeze bert encoder !!!")
         for child in net_g.module.enc_p.bert.children():
                 for param in child.parameters():
