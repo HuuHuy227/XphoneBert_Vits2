@@ -268,6 +268,7 @@ def run(rank, n_gpus, hps):
             f"******************Found exists checkpoint，at epoch {epoch_str}，global step {global_step}*********************"
         )
     except:
+        print("******************Training from scratch*********************")
         epoch_str = 1
         global_step = 0
 
