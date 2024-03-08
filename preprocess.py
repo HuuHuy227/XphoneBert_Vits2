@@ -32,34 +32,37 @@ if __name__ == "__main__":
     for filelist in args.filelists:
         print("START:", filelist)
         
-        #print("-----------Normalizing Text And Segmented On Raw Text-------------")
-        with open(filelist + "." + args.out_extension, "w", encoding="utf-8") as out_file:
+        if args.raw_text:
+            print("-----------Normalizing Text And Segmented On Raw Text-------------")
+            with open(filelist + "." + args.out_extension, "w", encoding="utf-8") as out_file:
                 with open(filelist, "r", encoding="utf-8") as trans_file:
                     lines = trans_file.readlines()
                     # print(lines, ' ', len(lines))
                     if len(lines) != 0:
                         for line in tqdm(lines):
-                            # try: #UnicodeEncodeError: 'ascii' codec can't encode character u'\xa0'.
+                            try: #UnicodeEncodeError: 'ascii' codec can't encode character u'\xa0'.
                                 utt, text = line.strip().split("|")
-                                if args.raw_text:
-                                    norm_seg_text = clean_text(text)
-                                    seq = model.infer_sentence(norm_seg_text)
-                                else:
-                                    seq = model.infer_sentence(text)
+                                norm_seg_text = clean_text(text)
+                                # if args.raw_text:
+                                #     norm_seg_text = clean_text(text)
+                                #     seq = model.infer_sentence(norm_seg_text)
+                                # else:
+                                #     seq = model.infer_sentence(text)
                                 out_file.write(
                                     "{}|{}\n".format(
                                         utt,
-                                        seq 
+                                        norm_seg_text
                                     )
                                 )
-                            # except Exception as e:
-                            #     print(line)
-                            #     print(f"Error while preprocess data:\n{e}")
-            # print("----------- Phonemezing On Normalized Segmented-Word -------------")
-            # Processing data
-        #     model.infer_dataset(input_file = filelist + "." + args.out_extension, 
-        #                         output_file=filelist + "." + args.out_extension + ".phonemed", 
-        #                         batch_size=args.batch_size)
+                            except Exception as e:
+                                print(line)
+                                print(f"Error while preprocess data:\n{e}")
+        
+        print("----------- Phonemezing On Normalized Segmented-Word -------------")
+        #Processing data
+        model.infer_dataset(input_file = filelist + "." + args.out_extension, 
+                                output_file=filelist + "." + args.out_extension + ".phonemed", 
+                                batch_size=args.batch_size)
             
         # else:
         #     print("----------- Phonemezing On Normalized Segmented-Word -------------")
