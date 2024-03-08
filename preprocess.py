@@ -39,7 +39,7 @@ if __name__ == "__main__":
                     # print(lines, ' ', len(lines))
                     if len(lines) != 0:
                         for line in tqdm(lines):
-                            try:
+                            # try: #UnicodeEncodeError: 'ascii' codec can't encode character u'\xa0'.
                                 utt, text = line.strip().split("|")
                                 if args.raw_text:
                                     norm_seg_text = clean_text(text)
@@ -52,9 +52,9 @@ if __name__ == "__main__":
                                         seq 
                                     )
                                 )
-                            except Exception as e:
-                                print(line)
-                                print(f"Error while preprocess data:\n{e}")
+                            # except Exception as e:
+                            #     print(line)
+                            #     print(f"Error while preprocess data:\n{e}")
             # print("----------- Phonemezing On Normalized Segmented-Word -------------")
             # Processing data
         #     model.infer_dataset(input_file = filelist + "." + args.out_extension, 
