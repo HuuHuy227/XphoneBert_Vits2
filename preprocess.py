@@ -10,7 +10,7 @@ if __name__ == "__main__":
     parser.add_argument("--audio_path", type=str)
     parser.add_argument("--raw_text", type=bool, default=True)
     parser.add_argument("--language", default="vie-n")
-    parser.add_argument("--cuda", default=False, action='store_true')
+    parser.add_argument("--cuda", type=bool, default=False)
     parser.add_argument("--pretrained_g2p_model", default="charsiu/g2p_multilingual_byT5_small_100")
     parser.add_argument("--tokenizer", default="google/byt5-small")
     parser.add_argument("--batch_size", default=64)
