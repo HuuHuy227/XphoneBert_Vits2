@@ -4,7 +4,7 @@ import os
 from vinorm import TTSnorm
 import py_vncorenlp
 
-path = os.path.join(os.getcwd(),"py_vncorenlp") #Get current path
+path = os.path.join(os.getcwd(),"py_vncorenlp") # Get current path. Pycorenlp requires absolute path.
 rdrsegmenter = py_vncorenlp.VnCoreNLP(annotators=["wseg"], save_dir=path)
 
 def seg_sentence(text):
@@ -18,7 +18,7 @@ def seg_sentences(text):
     return seg_text
 
 def clean_text(text):
-    norm_text = TTSnorm(text).strip() 
+    norm_text = TTSnorm(text, punc=False, unknown=True, rule=False).strip() # Normalize before segmenting word
     seg_text = seg_sentence(norm_text) 
     return seg_text
 
@@ -44,10 +44,9 @@ if __name__ == "__main__":
         with open(filelist + "." + args.out_extension, "w", encoding="utf-8") as out_file:
                 with open(filelist, "r", encoding="utf-8") as trans_file:
                     lines = trans_file.readlines()
-                    # print(lines, ' ', len(lines))
                     if len(lines) != 0:
                         for line in tqdm(lines):
-                            try: #UnicodeEncodeError: 'ascii' codec can't encode character u'\xa0'.
+                            try: 
                                 utt, text = line.strip().split("|")
                                 norm_seg_text = clean_text(text)
                                 out_file.write(

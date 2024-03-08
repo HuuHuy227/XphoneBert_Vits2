@@ -15,7 +15,7 @@
         "warmup_epochs": 0,
         "c_mel": 45,
         "c_kl": 1.0,
-        "skip_optimizer": false,
+        "skip_optimizer": true,
         "freeze_bert": false,
         "pretrained_path":"/kaggle/working/XphoneBert_Vits2/ckpt"
     },
