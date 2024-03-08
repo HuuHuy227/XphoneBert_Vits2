@@ -29,6 +29,7 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, skip_optimizer=False
         and not skip_optimizer
         and checkpoint_dict["optimizer"] is not None
     ):
+        print("Loading optimizer from checkpoint")
         optimizer.load_state_dict(checkpoint_dict["optimizer"])
     elif optimizer is None and not skip_optimizer:
         # else:      Disable this line if Infer and resume checkpoint,then enable the line upper

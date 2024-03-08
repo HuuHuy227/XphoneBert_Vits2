@@ -15,9 +15,9 @@
         "warmup_epochs": 0,
         "c_mel": 45,
         "c_kl": 1.0,
-        "skip_optimizer": true,
+        "skip_optimizer": false,
         "freeze_bert": false,
-        "pretrained_path":"/root/vits2_pytorch/ckpt"
+        "pretrained_path":"/kaggle/working/XphoneBert_Vits2/ckpt"
     },
     "data": {
         "use_mel_posterior_encoder": true,
