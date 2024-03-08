@@ -61,8 +61,12 @@ class TextAudioLoader(torch.utils.data.Dataset):
         print("Init dataset...")
         for audiopath, text in self.audiopaths_and_text:
             if self.min_text_len <= len(text) and len(text) <= self.max_text_len:
-                audiopaths_and_text_new.append([audiopath, text])
-                lengths.append(os.path.getsize(os.path.join(self.audio_dir,audiopath)) // (2 * self.hop_length))
+                #print(audiopath)
+                try:
+                  audiopaths_and_text_new.append([audiopath, text])
+                  lengths.append(os.path.getsize(os.path.join(self.audio_dir,audiopath)) // (2 * self.hop_length))
+                except:
+                  skipped += 1
             else:
                 skipped += 1
 
