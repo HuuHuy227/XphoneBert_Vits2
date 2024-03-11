@@ -16,7 +16,7 @@
         "c_mel": 45,
         "c_kl": 1.0,
         "skip_optimizer": true,
-        "freeze_bert": false,
+        "freeze_bert": true,
         "pretrained_path":"/kaggle/working/XphoneBert_Vits2/ckpt"
     },
     "data": {
