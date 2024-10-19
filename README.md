@@ -10,7 +10,7 @@
 4. Install python requirements. Please refer [requirements.txt](requirements.txt)
 5. Download datasets
     1. Download and extract the LJ Speech dataset, then rename or create a link to the dataset folder: `ln -s /path/to/LJSpeech-1.1/wavs DUMMY`
-    2. Note: This repo not supported multi-speaker dataset
+    2. Note: This repo do not supported training multi-speaker dataset
 6. Move/copy your .txt training, validation and test files to the filelists directory, and then run the preprocess.py file (similar to as run for the LJSpeech dataset), for example:
    - Please refer to [XPhoneBERT](https://github.com/VinAIResearch/XPhoneBERT) for more information. They using `text2phonemesequence` for converting raw text to phoneme sequence.
 	-	Initializing `text2phonemesequence` for each language requires its corresponding ISO 639-3 code. The ISO 639-3 codes of supported languages are available at [HERE](https://github.com/VinAIResearch/XPhoneBERT/blob/main/LanguageISO639-3Codes.md).
